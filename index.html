@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>滅菌確效製令試算</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+:root {
+  --bg: #f4f7f8; --surface: #ffffff; --fg: #13232b; --muted: #5a6b73; --line: #d8e0e4;
+  --accent: #0e5f70; --accent-ink: #ffffff; --on: #dcebf0; --warn-bg: #fdf0d5; --warn-fg: #7a5200;
+  --mpo-bg: #e3edf8; --mpo-fg: #1b4a7c; --mpo-bar: #5b92cf;
+  --hi-bg: #fbe7da; --hi-fg: #8a3b10; --hi-bar: #e08a55;
+  --mid-bg: #e4f1e7; --mid-fg: #1d5a2e; --mid-bar: #55a96b;
+  --ctl-bg: #f0e9f7; --ctl-fg: #593a82; --ctl-bar: #9a78c8;
+  --inh-bg: #e8ecee; --inh-fg: #3a4950; --inh-bar: #8797a0;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d171b; --surface: #15232a; --fg: #e5eef1; --muted: #96a8b0; --line: #2a3b44;
+    --accent: #5cc3d6; --accent-ink: #06222a; --on: #1b3640; --warn-bg: #3a2e12; --warn-fg: #f0cf85;
+    --mpo-bg: #162f49; --mpo-fg: #a2c9f3; --mpo-bar: #4a82c0;
+    --hi-bg: #3b2416; --hi-fg: #f2b891; --hi-bar: #c9784a;
+    --mid-bg: #16341f; --mid-fg: #a3dcb1; --mid-bar: #4a9a5f;
+    --ctl-bg: #2d2140; --ctl-fg: #cdb4ee; --ctl-bar: #8a6bb8;
+    --inh-bg: #212f36; --inh-fg: #b7c5cc; --inh-bar: #6d7f89;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d171b; --surface: #15232a; --fg: #e5eef1; --muted: #96a8b0; --line: #2a3b44;
+  --accent: #5cc3d6; --accent-ink: #06222a; --on: #1b3640; --warn-bg: #3a2e12; --warn-fg: #f0cf85;
+  --mpo-bg: #162f49; --mpo-fg: #a2c9f3; --mpo-bar: #4a82c0;
+  --hi-bg: #3b2416; --hi-fg: #f2b891; --hi-bar: #c9784a;
+  --mid-bg: #16341f; --mid-fg: #a3dcb1; --mid-bar: #4a9a5f;
+  --ctl-bg: #2d2140; --ctl-fg: #cdb4ee; --ctl-bar: #8a6bb8;
+  --inh-bg: #212f36; --inh-fg: #b7c5cc; --inh-bar: #6d7f89;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.wrap > * { min-width: 0; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; color: var(--muted); font-weight: 500; }
+h1 { margin: 2px 0 6px; font-size: 26px; line-height: 1.25; font-weight: 700; text-wrap: balance; }
+.lead { margin: 0; color: var(--muted); max-width: 66ch; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+.panel h2 { margin: 0 0 4px; font-size: 16px; font-weight: 700; }
+.sub { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+
+/* method chooser */
+.choose { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.choose button {
+  text-align: left; font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 12px; padding: 20px; cursor: pointer; display: flex; flex-direction: column; gap: 6px;
+}
+.choose button:hover { border-color: var(--accent); }
+.choose .mname { font-size: 18px; font-weight: 700; }
+.choose .mmeta { font-size: 13px; color: var(--muted); }
+.choose .mfoot { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+
+/* workspace bar */
+.bar-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; background: var(--on); color: var(--fg); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 500; }
+.btn { border: 1px solid var(--line); background: var(--surface); color: var(--accent); border-radius: 8px; padding: 7px 14px; font: inherit; font-weight: 500; cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+
+.inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+label { display: block; font-weight: 500; margin-bottom: 4px; font-size: 14px; }
+label small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+input[type=number] {
+  width: 100%; font-family: var(--font-num); font-size: 24px; font-weight: 600; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); -moz-appearance: textfield;
+}
+input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.rule { margin: 14px 0 0; padding: 10px 12px; background: var(--on); border-radius: 8px; font-size: 13.5px; }
+.rule b { font-family: var(--font-num); font-weight: 600; }
+
+.total { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; background: var(--accent); color: var(--accent-ink); border-radius: 12px; padding: 16px 18px; }
+.t-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+.t-num { font-family: var(--font-num); font-size: 34px; font-weight: 600; line-height: 1; }
+.t-sub { font-size: 13px; opacity: .92; }
+.total .btn { border-color: currentColor; background: transparent; color: inherit; }
+.total .btn:hover { background: rgba(255,255,255,.14); }
+.check { font-size: 13px; color: var(--muted); margin: 0; }
+.warn { background: var(--warn-bg); color: var(--warn-fg); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin: 0; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card h3 { margin: 0; font-size: 15px; font-weight: 700; }
+.big { display: flex; align-items: baseline; gap: 8px; }
+.big .num { font-family: var(--font-num); font-size: 44px; font-weight: 600; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.big .unit { color: var(--muted); font-size: 13px; }
+.bar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; background: var(--line); }
+.bar span { display: block; min-width: 0; }
+.bar .mpo { background: var(--mpo-bar); }
+.bar .hi { background: var(--hi-bar); }
+.bar .mid { background: var(--mid-bar); }
+.bar .ctl { background: repeating-linear-gradient(45deg, var(--ctl-bar) 0 3px, var(--surface) 3px 6px); }
+.bar .inh { background: var(--inh-bar); }
+.grp { border-radius: 8px; padding: 8px 10px; }
+.grp.mpo { background: var(--mpo-bg); color: var(--mpo-fg); }
+.grp.hi { background: var(--hi-bg); color: var(--hi-fg); }
+.grp.mid { background: var(--mid-bg); color: var(--mid-fg); }
+.grp.ctl { background: var(--ctl-bg); color: var(--ctl-fg); border: 1.5px dashed var(--ctl-bar); }
+.grp.inh { background: var(--inh-bg); color: var(--inh-fg); }
+.gh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 700; font-size: 13.5px; }
+.gh .gt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.gh b, .grp li span:last-child { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.badge { border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; font-size: 11.5px; font-weight: 500; font-family: var(--font-num); white-space: nowrap; }
+.gnote { font-size: 12px; opacity: .85; margin-top: 1px; }
+.grp ul { list-style: none; margin: 4px 0 0; padding: 0; font-size: 13px; }
+.grp li { display: flex; justify-content: space-between; gap: 8px; opacity: .94; }
+.grp li span:first-child { min-width: 0; }
+
+.notes { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13px; }
+.notes li { margin-bottom: 4px; }
+.copybox { width: 100%; min-height: 150px; font-family: var(--font-num); font-size: 12.5px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); padding: 10px; }
+.act { margin-top: 12px; }
+.act .btn { color: var(--accent); }
+.cards.stack { grid-template-columns: 1fr; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.lines { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px 16px; overflow-x: auto; }
+.line { display: grid; grid-template-columns: 5em 5.5em 1fr; gap: 12px; align-items: baseline; white-space: nowrap; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.line:last-child { border-bottom: 0; }
+.ln-b { font-weight: 700; }
+.ln-n { font-family: var(--font-num); font-size: 18px; font-weight: 600; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ln-f { font-family: var(--font-num); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) {
+  h1 { font-size: 23px; }
+  .big .num { font-size: 40px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">ISO 11137-2:2013 · 製令數量試算</div>
+    <h1>滅菌確效製令試算</h1>
+    <p class="lead" id="lead">先選擇滅菌方式，再輸入功能測試與組裝QC數量，即時算出製令數量。</p>
+  </header>
+
+  <!-- Step 1: choose method -->
+  <section id="chooser" aria-label="選擇滅菌方式">
+    <div class="choose">
+      <button type="button" data-m="cbc">
+        <span class="mname">輻射滅菌（Gamma）</span>
+        <span class="mmeta">三批 · 50 PCS 確效</span>
+        <span class="mfoot">依照射劑量分為高劑量、一般劑量與未滅菌對照組，每批各自計算。</span>
+      </button>
+      <button type="button" data-m="eo">
+        <span class="mname">環氧乙烷（EO）</span>
+        <span class="mmeta">單一製令 · B1 產品家族</span>
+        <span class="mfoot">整張製令只開一次，依 IPCD 與 EPCD 的測試項目加總，EPCD 期間列不計入。</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Step 2: workspace -->
+  <div id="work" class="wrap" hidden>
+    <div class="bar-top">
+      <span class="chip" id="chip"></span>
+      <button type="button" class="btn" id="back">換滅菌方式</button>
+    </div>
+
+    <section class="panel" aria-labelledby="ih">
+      <h2 id="ih">輸入數量</h2>
+      <p class="sub" id="ihsub"></p>
+      <div class="inputs">
+        <div>
+          <label for="f" id="fl"></label>
+          <input id="f" type="number" min="0" inputmode="numeric">
+        </div>
+        <div>
+          <label for="qc" id="ql"></label>
+          <input id="qc" type="number" min="0" inputmode="numeric">
+        </div>
+      </div>
+      <div class="rule" id="rule"></div>
+    </section>
+
+    <section class="total" id="total" aria-live="polite"></section>
+    <div id="warn"></div>
+    <section aria-label="製令數量"><div class="cards" id="cards"></div></section>
+
+    <section class="panel">
+      <h2>規則說明</h2>
+      <ul class="notes" id="notes-cbc" hidden>
+        <li>依據 ISO 11137-2:2013，三批各自開立製令，每批數量各自計算。</li>
+        <li>包裝一律 12 件；功能依輸入數字計算，每個「包裝+功能」組 = 12 + 功能。</li>
+        <li>高劑量 50–55 kGy：第一批的高劑量包裝+功能不計入，因共用加速老化報告，不另外作。</li>
+        <li>一般劑量 25–50 kGy（不老化，劑量分佈後再做包裝與功能測試，每批 1 組）；未滅菌對照組 1 組。</li>
+        <li>微生物 10 件、回收率 3 件、抑菌/抑黴 7 件為第一批；照射-1 無菌驗證劑量 10 件放在第二批。</li>
+        <li>廠內每批 = 組裝QC + 滅前生菌 6 件。</li>
+      </ul>
+      <ul class="notes" id="notes-eo" hidden>
+        <li>依據 ISO 11137-2:2013，EO 方式為單一製令，不分三批。</li>
+        <li>總數 = 投入樣品 + 生菌 6 + 組裝QC。</li>
+        <li>EPCD 期間分配列不計入加總；IPCD 期間分配列計入。</li>
+        <li>包裝測試一律 12 件，只在有包裝項目的格子出現。EO 產品 A、B 各 1 種，EO 殘留每個全週期 = 6 + 6 = 12 件。</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>複製與匯出</h2>
+      <p class="sub">複製文字，或匯出與原表相同格式的對照表：PNG 可直接插入文件，CSV 可用 Excel 開啟。</p>
+      <div class="btns">
+        <button type="button" class="btn" id="copy">複製結果</button>
+        <button type="button" class="btn" id="exp-png">匯出 PNG</button>
+        <button type="button" class="btn" id="exp-csv">匯出 CSV</button>
+      </div>
+      <textarea id="ct" class="copybox" readonly hidden aria-label="試算結果文字"></textarea>
+    </section>
+  </div>
+</div>
+
+<script>
+/*CALC*/
+const NAMES = ['第一批', '第二批', '第三批'];
+const PK = 12;          // 包裝 per 包裝+功能 group (CBC) / per packaging cell (EO)
+const GEN_CBC = 6;      // 滅前生菌 per batch (CBC)
+const GEN_EO = 6;       // 生菌 once per EO 製令
+const CBC = {
+  BIO: [10, 10, 10], REC: [3, 0, 0], VER: [0, 10, 0], BF: [7, 0, 0],
+  HI: [0, 0, 0], MID: [1, 1, 1], CTL: [1, 0, 0]   // 高劑量：第一批不計入，共用加速老化報告
+};
+const EO = { PER: 22, BIO: 33, STER: 12, ANTI: 4, EO_RES: 12 };
+
+const sum = a => a.reduce((s, x) => s + x, 0);
+function mkGroup(id, title, badge, note, items) {
+  return { id, title, badge, note, items, sub: sum(items.map(i => i[1])) };
+}
+function cbcCards(F, QC) {
+  return [0, 1, 2].map(b => {
+    const per = PK + F;
+    const mpoItems = [['微生物', CBC.BIO[b]], ['回收率', CBC.REC[b]], ['照射-1 無菌', CBC.VER[b]], ['抑菌/抑黴', CBC.BF[b]]];
+    const setGroup = (id, title, badge, note, n) => mkGroup(id, title, badge, note, [
+      ['包裝 ' + PK + (n > 1 ? ' × ' + n : ''), n * PK],
+      ['功能 ' + F + (n > 1 ? ' × ' + n : ''), n * F]
+    ]);
+    const groups = [
+      mkGroup('mpo', 'MPO 微生物', '', '', mpoItems),
+      setGroup('hi', '高劑量 包裝+功能', '50–55 kGy', '包在加速老化樣品裡驗證', CBC.HI[b]),
+      setGroup('mid', '一般劑量 包裝+功能', '25–50 kGy', '劑量分佈後確認功能與無菌屏障', CBC.MID[b]),
+      setGroup('ctl', '對照組 包裝+功能', '未滅菌', '不照射，與照射組對照', CBC.CTL[b]),
+      mkGroup('inh', '廠內', '', '', [['組裝QC', QC], ['滅前生菌', GEN_CBC]])
+    ].filter(g => g.sub > 0);
+    return { title: NAMES[b], unit: '件 製令數量', order: sum(groups.map(g => g.sub)), groups };
+  });
+}
+function eoCard(F, QC) {
+  const groups = [
+    mkGroup('mpo', '微生物・無菌・抑菌', 'EPCD / IPCD', '', [
+      ['微生物（EPCD）', EO.BIO], ['無菌 12 × 3（EPCD）', EO.STER * 3], ['抑菌抑霉（IPCD）', EO.ANTI]
+    ]),
+    mkGroup('hi', '功能・包裝', '', '全週期 #1–#3、對照組', [
+      ['功能性 × 4（IPCD）', 4 * F], ['包裝 12 × 4（IPCD）', 4 * PK]
+    ]),
+    mkGroup('mid', '期間樣品・EO 殘留', '', '', [
+      ['期間樣品 22 × 4（IPCD）', EO.PER * 4], ['EO 殘留 12 × 3（IPCD）', EO.EO_RES * 3]
+    ]),
+    mkGroup('inh', '廠內', '', '', [['生菌', GEN_EO], ['組裝QC', QC]])
+  ].filter(g => g.sub > 0);
+  return { title: '單一製令', unit: '件 建議開單', order: sum(groups.map(g => g.sub)), groups };
+}
+/*END*/
+
+const $ = id => document.getElementById(id);
+const MODES = {
+  cbc: { chip: '輻射滅菌（Gamma）· 三批', fl: '功能', flSub: '每個「包裝+功能」組的功能件數', ql: '組裝QC', qlSub: '每批件數', f0: 5, q0: 10,
+    ihsub: '功能與組裝QC各自套用在每一批。目前的數字是範例，請改成實際需求。' },
+  eo:  { chip: '環氧乙烷（EO）· 單一製令', fl: '功能性', flSub: '每個全週期與對照組的件數', ql: '組裝QC', qlSub: '整張製令的件數', f0: 10, q0: 9,
+    ihsub: 'EO 為單一製令，數字套用在整張製令。目前的數字是範例，請改成實際需求。' }
+};
+const saved = { cbc: { f: 5, q: 10 }, eo: { f: 10, q: 9 } };
+let mode = null;
+let lastText = '';
+let lastF = 0, lastQC = 0;
+
+function toInt(v) { const n = parseInt(v, 10); return isNaN(n) || n < 0 ? 0 : n; }
+
+function groupHTML(g) {
+  const items = g.items.filter(i => i[1] > 0).map(i => '<li><span>' + i[0] + '</span><span>' + i[1] + '</span></li>').join('');
+  return '<div class="grp ' + g.id + '"><div class="gh"><span class="gt"><span>' + g.title + '</span>' +
+    (g.badge ? '<span class="badge">' + g.badge + '</span>' : '') + '</span><b>' + g.sub + '</b></div>' +
+    (g.note ? '<div class="gnote">' + g.note + '</div>' : '') + '<ul>' + items + '</ul></div>';
+}
+const LBL = { mpo: 'MPO', hi: '高劑量', mid: '一般劑量', ctl: '對照組', inh: '廠內' };
+function lineHTML(c, i) {
+  return '<div class="line"><span class="ln-b">' + NAMES[i] + '</span><span class="ln-n">' + c.order + ' 件</span><span class="ln-f">' +
+    c.groups.map(g => LBL[g.id] + ' ' + g.sub).join(' + ') + ' = ' + c.order + '</span></div>';
+}
+function cardHTML(c, label) {
+  return '<article class="card"><h3>' + c.title + '</h3>' +
+    '<div class="big"><span class="num">' + c.order + '</span><span class="unit">' + c.unit + '</span></div>' +
+    '<div class="bar" role="img" aria-label="' + label + '">' +
+    c.groups.map(g => '<span class="' + g.id + '" style="flex:' + g.sub + '"></span>').join('') + '</div>' +
+    c.groups.map(groupHTML).join('') + '</article>';
+}
+
+function render() {
+  if (!mode) return;
+  const F = toInt($('f').value), QC = toInt($('qc').value);
+  saved[mode] = { f: F, q: QC };
+  lastF = F; lastQC = QC;
+  let cards, total, valid, text;
+  if (mode === 'cbc') {
+    cards = cbcCards(F, QC);
+    total = sum(cards.map(c => c.order));
+    $('cards').className = 'cards stack';
+    $('cards').innerHTML = cards.map((c, i) => cardHTML(c, NAMES[i] + ' 製令 ' + c.order)).join('');
+    $('rule').innerHTML = '每個「包裝+功能」組 = 包裝 <b>' + PK + '</b> + 功能 <b>' + F + '</b> = <b>' + (PK + F) + '</b> 件；每批廠內 = 組裝QC <b>' + QC + '</b> + 滅前生菌 <b>' + GEN_CBC + '</b> = <b>' + (QC + GEN_CBC) + '</b> 件。';
+    $('total').innerHTML = '<div class="t-main"><span class="t-num">' + total + '</span><span>件 3 批合計</span>' +
+      '<span class="t-sub">' + cards.map((c, i) => NAMES[i] + ' ' + c.order).join(' ・ ') + '</span></div><button type="button" class="btn" id="cp">複製結果</button>';
+    text = ['輻射滅菌（Gamma）製令數量試算（ISO 11137-2:2013）',
+      '功能 ' + F + '、組裝QC ' + QC + '（每批）、包裝 ' + PK + '、滅前生菌 ' + GEN_CBC + '（每批）'];
+    cards.forEach((c, i) => text.push(NAMES[i] + '：製令 ' + c.order + ' 件'));
+    text.push('3 批合計：' + total + ' 件');
+    valid = null;
+  } else {
+    const c = eoCard(F, QC);
+    cards = [c];
+    total = c.order;
+    $('cards').className = 'cards stack';
+    $('cards').innerHTML = cardHTML(c, '單一製令 ' + c.order);
+    $('rule').innerHTML = 'EO 殘留每個全週期 = A <b>1</b> × 6 + B <b>1</b> × 6 = <b>12</b> 件；生菌 <b>' + GEN_EO + '</b> 件與組裝QC <b>' + QC + '</b> 件，各計一次。';
+    const sub = c.groups.filter(g => g.id !== 'inh').reduce((s, g) => s + g.sub, 0);
+    $('total').innerHTML = '<div class="t-main"><span class="t-num">' + total + '</span><span>件 建議開單</span>' +
+      '<span class="t-sub">投入樣品 ' + sub + ' + 生菌 ' + GEN_EO + ' + 組裝QC ' + QC + '</span></div><button type="button" class="btn" id="cp">複製結果</button>';
+    text = ['EO 滅菌確效 樣品試算（單一製令，ISO 11137-2:2013）',
+      '功能性 ' + F + '（每全週期與對照組）、組裝QC ' + QC + '（整張製令）',
+      '投入樣品 ' + sub + ' + 生菌 ' + GEN_EO + ' + 組裝QC ' + QC + ' = 開單 ' + total + ' 件'];
+  }
+  lastText = text.join('\n');
+
+  const warns = [];
+  if (F === 0) warns.push('功能為 0，請確認是否真的不需要功能樣品。');
+  $('warn').innerHTML = warns.map(w => '<p class="warn">' + w + '</p>').join('');
+
+  $('cp').onclick = copyResult;
+}
+
+function buildTable() {
+  const F = lastF, QC = lastQC;
+  const s = v => (v ? String(v) : '');
+  const n3 = fn => [0, 1, 2].map(fn);
+  if (mode === 'cbc') {
+    const cards = cbcCards(F, QC);
+    const rows = [
+      ['微生物', ...n3(b => s(CBC.BIO[b]))],
+      ['回收率', ...n3(b => s(CBC.REC[b]))],
+      ['照射-1 無菌', ...n3(b => s(CBC.VER[b]))],
+      ['抑菌/抑黴', ...n3(b => s(CBC.BF[b]))],
+      ['高劑量 包裝', ...n3(b => s(CBC.HI[b] * PK))],
+      ['高劑量 功能', ...n3(b => s(CBC.HI[b] * F))],
+      ['一般劑量 包裝', ...n3(b => s(CBC.MID[b] * PK))],
+      ['一般劑量 功能', ...n3(b => s(CBC.MID[b] * F))],
+      ['對照組 包裝', ...n3(b => s(CBC.CTL[b] * PK))],
+      ['對照組 功能', ...n3(b => s(CBC.CTL[b] * F))],
+      ['組裝QC', ...n3(() => s(QC))],
+      ['滅前生菌', ...n3(() => s(GEN_CBC))],
+      ['製令數量', ...cards.map(c => String(c.order))]
+    ];
+    return {
+      title: '輻射滅菌（Gamma）製令數量對照表',
+      sub: '功能 ' + F + '　組裝QC ' + QC + '（每批）　包裝 ' + PK + '　滅前生菌 ' + GEN_CBC + '（每批）',
+      headers: ['項目', '第一批', '第二批', '第三批'],
+      widths: [200, 140, 140, 140], leftCols: 1, rows, file: 'Gamma-製令對照'
+    };
+  }
+  const E = 12;
+  const z = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  const at = (idx, val) => { const a = z.slice(); idx.forEach(i => { a[i] = val; }); return a; };
+  // cell order: 部份, 半#1, 半#2, 半#3, 全#1, 全#2, 全#3, 全#4, 全#5, 全#6, 對照組, 附著量
+  const items = [
+    ['EPCD', '期間分配（不計入）', [22, 22, 22, 22, 22, 22, 22, 0, 0, 0, 0, 0], true],
+    ['EPCD', '微生物', at([11], EO.BIO)],
+    ['EPCD', '無菌', at([1, 2, 4], EO.STER)],
+    ['IPCD', '期間分配', [22, 22, 22, 22, 0, 0, 0, 0, 0, 0, 0, 0]],
+    ['IPCD', '抑菌抑霉', at([4], EO.ANTI)],
+    ['IPCD', '功能性', at([4, 5, 6, 10], F)],
+    ['IPCD', '包裝', at([4, 5, 6, 10], PK)],
+    ['IPCD', 'EO 殘留', at([7, 8, 9], E)]
+  ];
+  const rows = items.map(([m, it, cells, excl]) => {
+    const t = sum(cells);
+    return [m, it, ...cells.map(s), excl ? t + '（不計入）' : String(t)];
+  });
+  const counted = items.filter(r => !r[3]).reduce((a, r) => a + sum(r[2]), 0);
+  const blank = Array(12).fill('');
+  rows.push(['', '投入樣品合計', ...blank, String(counted)]);
+  rows.push(['', '生菌', ...blank, String(GEN_EO)]);
+  rows.push(['', '組裝QC', ...blank, String(QC)]);
+  rows.push(['', '開單數量', ...blank, String(counted + GEN_EO + QC)]);
+  return {
+    title: 'EO 滅菌確效 樣品對照表（單一製令）',
+    sub: '功能性 ' + F + '　組裝QC ' + QC + '　包裝 ' + PK + '　EO 殘留 A 1 種、B 1 種',
+    headers: ['代表型號', '項目', '部份', '半#1', '半#2', '半#3', '全#1', '全#2', '全#3', '全#4', '全#5', '全#6', '對照組', '附著量', '樣品數'],
+    widths: [78, 150, 60, 60, 60, 60, 60, 60, 60, 60, 60, 60, 64, 64, 84], leftCols: 2, rows, file: 'EO-樣品對照'
+  };
+}
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function exportPNG() {
+  const t = buildTable();
+  const FONT = '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif';
+  if (document.fonts) { try { await document.fonts.load('14px "Noto Sans TC"'); } catch (e) {} }
+  const pad = 24, titleH = 40, subH = 26, headH = 34, rowH = 30;
+  const tableW = sum(t.widths);
+  const W = pad * 2 + tableW;
+  const top = pad + titleH + subH + 12;
+  const H = top + headH + t.rows.length * rowH + pad;
+  const dpr = 2;
+  const cv = document.createElement('canvas');
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext('2d');
+  g.scale(dpr, dpr);
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+  g.textBaseline = 'middle';
+  g.textAlign = 'left';
+  g.fillStyle = '#13232b'; g.font = '700 20px ' + FONT;
+  g.fillText(t.title, pad, pad + titleH / 2);
+  g.fillStyle = '#5a6b73'; g.font = '13px ' + FONT;
+  g.fillText(t.sub, pad, pad + titleH + subH / 2);
+
+  const drawRow = (y, h, values, style) => {
+    g.fillStyle = style.bg;
+    g.fillRect(pad, y, tableW, h);
+    let x = pad;
+    values.forEach((v, i) => {
+      const w = t.widths[i];
+      const left = i < t.leftCols;
+      g.fillStyle = style.fg;
+      g.font = (style.bold ? '700 ' : '400 ') + '14px ' + FONT;
+      g.textAlign = left ? 'left' : 'center';
+      g.fillText(v, left ? x + 10 : x + w / 2, y + h / 2);
+      g.strokeStyle = '#d8e0e4'; g.lineWidth = 1;
+      g.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      x += w;
+    });
+  };
+  drawRow(top, headH, t.headers, { bg: '#e8eef1', fg: '#3a4950', bold: true });
+  const last = t.rows.length - 1;
+  t.rows.forEach((r, i) => {
+    drawRow(top + headH + i * rowH, rowH, r, { bg: i === last ? '#dcebf0' : '#ffffff', fg: '#13232b', bold: i === last });
+  });
+  cv.toBlob(blob => download(blob, t.file + '.png'), 'image/png');
+}
+
+function exportCSV() {
+  const t = buildTable();
+  const esc = v => { const x = String(v); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+  const lines = [t.title, t.sub, '', t.headers.map(esc).join(',')].concat(t.rows.map(r => r.map(esc).join(',')));
+  download(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }), t.file + '.csv');
+}
+
+function copyResult() {
+  const box = $('ct');
+  const fallback = () => { box.hidden = false; box.value = lastText; box.focus(); box.select(); };
+  try {
+    navigator.clipboard.writeText(lastText).then(() => {
+      const b = $('cp'); if (!b) return; b.textContent = '已複製';
+      setTimeout(() => { const x = $('cp'); if (x) x.textContent = '複製結果'; }, 1500);
+    }, fallback);
+  } catch (e) { fallback(); }
+}
+
+function enter(m) {
+  mode = m;
+  const M = MODES[m];
+  const s = saved[m];
+  $('chip').textContent = M.chip;
+  $('fl').innerHTML = M.fl + '<small>' + M.flSub + '</small>';
+  $('ql').innerHTML = M.ql + '<small>' + M.qlSub + '</small>';
+  $('ihsub').textContent = M.ihsub;
+  $('f').value = s.f;
+  $('qc').value = s.q;
+  $('notes-cbc').hidden = m !== 'cbc';
+  $('notes-eo').hidden = m !== 'eo';
+  $('lead').textContent = m === 'cbc'
+    ? '輸入功能與組裝QC數量，即時推估 3 批各自的製令數量。'
+    : '輸入功能性與組裝QC數量，即時推估整張製令的開單數量。';
+  $('chooser').hidden = true;
+  $('work').hidden = false;
+  render();
+  $('f').focus({ preventScroll: true });
+}
+function leave() {
+  mode = null;
+  $('work').hidden = true;
+  $('chooser').hidden = false;
+  $('lead').textContent = '先選擇滅菌方式，再輸入功能測試與組裝QC數量，即時算出製令數量。';
+  $('ct').hidden = true;
+  document.querySelector('.choose button').focus();
+}
+
+document.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => enter(b.dataset.m)));
+$('back').addEventListener('click', leave);
+$('f').addEventListener('input', render);
+$('qc').addEventListener('input', render);
+$('copy').addEventListener('click', copyResult);
+$('exp-png').addEventListener('click', exportPNG);
+$('exp-csv').addEventListener('click', exportCSV);
+</script>
+</body>
+</html>
