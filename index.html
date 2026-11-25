@@ -248,7 +248,7 @@ function cbcCards(F, QC) {
       ['功能 ' + F + (n > 1 ? ' × ' + n : ''), n * F]
     ]);
     const groups = [
-      mkGroup('mpo', 'MPO 微生物', '', '', mpoItems),
+      mkGroup('mpo', 'CBC 滅菌確效', '', '', mpoItems),
       Object.assign(setGroup('hi', '高劑量 包裝+功能', CBC.HI_EXCL[b] ? '50–55 kGy · 不計入' : '50–55 kGy', '包在加速老化樣品裡驗證', CBC.HI[b]), { excl: CBC.HI_EXCL[b] }),
       setGroup('mid', '一般劑量 包裝+功能', '25–50 kGy', '劑量分佈後確認功能與無菌屏障', CBC.MID[b]),
       setGroup('ctl', '對照組 包裝+功能', '未滅菌', '不照射，與照射組對照', CBC.CTL[b]),
