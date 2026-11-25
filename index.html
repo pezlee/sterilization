@@ -127,6 +127,7 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
 .act { margin-top: 12px; }
 .act .btn { color: var(--accent); }
 .cards.stack { grid-template-columns: 1fr; }
+.grp.excl { opacity: .55; }
 .btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .lines { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px 16px; overflow-x: auto; }
 .line { display: grid; grid-template-columns: 5em 5.5em 1fr; gap: 12px; align-items: baseline; white-space: nowrap; padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -230,7 +231,7 @@ const GEN_CBC = 6;      // 滅前生菌 per batch (CBC)
 const GEN_EO = 6;       // 生菌 once per EO 製令
 const CBC = {
   BIO: [10, 10, 10], REC: [3, 0, 0], VER: [0, 10, 0], BF: [7, 0, 0],
-  HI: [0, 0, 0], MID: [1, 1, 1], CTL: [1, 0, 0]   // 高劑量：第一批不計入，共用加速老化報告
+  HI: [1, 0, 0], HI_EXCL: [true, false, false], MID: [1, 1, 1], CTL: [1, 0, 0]
 };
 const EO = { PER: 22, BIO: 33, STER: 12, ANTI: 4, EO_RES: 12 };
 
@@ -248,12 +249,12 @@ function cbcCards(F, QC) {
     ]);
     const groups = [
       mkGroup('mpo', 'MPO 微生物', '', '', mpoItems),
-      setGroup('hi', '高劑量 包裝+功能', '50–55 kGy', '包在加速老化樣品裡驗證', CBC.HI[b]),
+      Object.assign(setGroup('hi', '高劑量 包裝+功能', CBC.HI_EXCL[b] ? '50–55 kGy · 不計入' : '50–55 kGy', '包在加速老化樣品裡驗證', CBC.HI[b]), { excl: CBC.HI_EXCL[b] }),
       setGroup('mid', '一般劑量 包裝+功能', '25–50 kGy', '劑量分佈後確認功能與無菌屏障', CBC.MID[b]),
       setGroup('ctl', '對照組 包裝+功能', '未滅菌', '不照射，與照射組對照', CBC.CTL[b]),
       mkGroup('inh', '廠內', '', '', [['組裝QC', QC], ['滅前生菌', GEN_CBC]])
     ].filter(g => g.sub > 0);
-    return { title: NAMES[b], unit: '件 製令數量', order: sum(groups.map(g => g.sub)), groups };
+    return { title: NAMES[b], unit: '件 製令數量', order: sum(groups.filter(g => !g.excl).map(g => g.sub)), groups };
   });
 }
 function eoCard(F, QC) {
@@ -289,7 +290,7 @@ function toInt(v) { const n = parseInt(v, 10); return isNaN(n) || n < 0 ? 0 : n;
 
 function groupHTML(g) {
   const items = g.items.filter(i => i[1] > 0).map(i => '<li><span>' + i[0] + '</span><span>' + i[1] + '</span></li>').join('');
-  return '<div class="grp ' + g.id + '"><div class="gh"><span class="gt"><span>' + g.title + '</span>' +
+  return '<div class="grp ' + g.id + (g.excl ? ' excl' : '') + '"><div class="gh"><span class="gt"><span>' + g.title + '</span>' +
     (g.badge ? '<span class="badge">' + g.badge + '</span>' : '') + '</span><b>' + g.sub + '</b></div>' +
     (g.note ? '<div class="gnote">' + g.note + '</div>' : '') + '<ul>' + items + '</ul></div>';
 }
@@ -302,7 +303,7 @@ function cardHTML(c, label) {
   return '<article class="card"><h3>' + c.title + '</h3>' +
     '<div class="big"><span class="num">' + c.order + '</span><span class="unit">' + c.unit + '</span></div>' +
     '<div class="bar" role="img" aria-label="' + label + '">' +
-    c.groups.map(g => '<span class="' + g.id + '" style="flex:' + g.sub + '"></span>').join('') + '</div>' +
+    c.groups.filter(g => !g.excl).map(g => '<span class="' + g.id + '" style="flex:' + g.sub + '"></span>').join('') + '</div>' +
     c.groups.map(groupHTML).join('') + '</article>';
 }
 
@@ -359,8 +360,8 @@ function buildTable() {
       ['回收率', ...n3(b => s(CBC.REC[b]))],
       ['照射-1 無菌', ...n3(b => s(CBC.VER[b]))],
       ['抑菌/抑黴', ...n3(b => s(CBC.BF[b]))],
-      ['高劑量 包裝', ...n3(b => s(CBC.HI[b] * PK))],
-      ['高劑量 功能', ...n3(b => s(CBC.HI[b] * F))],
+      ['高劑量 包裝（一批不計）', ...n3(b => s(CBC.HI[b] * PK))],
+      ['高劑量 功能（一批不計）', ...n3(b => s(CBC.HI[b] * F))],
       ['一般劑量 包裝', ...n3(b => s(CBC.MID[b] * PK))],
       ['一般劑量 功能', ...n3(b => s(CBC.MID[b] * F))],
       ['對照組 包裝', ...n3(b => s(CBC.CTL[b] * PK))],
