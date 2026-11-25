@@ -184,6 +184,10 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
           <label for="qc" id="ql"></label>
           <input id="qc" type="number" min="0" inputmode="numeric">
         </div>
+        <div>
+          <label for="yld">初期良率（%）<small>建議製令 = 投入 ÷ 良率，無條件進位</small></label>
+          <input id="yld" type="number" min="1" max="100" inputmode="numeric" value="90">
+        </div>
       </div>
       <div class="rule" id="rule"></div>
     </section>
@@ -201,10 +205,12 @@ input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner
         <li>一般劑量 25–50 kGy（不老化，劑量分佈後再做包裝與功能測試，每批 1 組）；未滅菌對照組 1 組。</li>
         <li>微生物 10 件、回收率 3 件、抑菌/抑黴 7 件為第一批；照射-1 無菌驗證劑量 10 件放在第二批。</li>
         <li>廠內每批 = 組裝QC + 滅前生菌 6 件。</li>
+        <li>建議製令 = 每批投入 ÷ 初期良率，無條件進位（預設 90%，可調整）。</li>
       </ul>
       <ul class="notes" id="notes-eo" hidden>
         <li>依據 ISO 11137-2:2013，EO 方式為單一製令，不分三批。</li>
         <li>總數 = 投入樣品 + 生菌 6 + 組裝QC。</li>
+        <li>建議開單 = 總數 ÷ 初期良率，無條件進位（預設 90%，可調整）。</li>
         <li>EPCD 期間分配列不計入加總；IPCD 期間分配列計入。</li>
         <li>包裝測試一律 12 件，只在有包裝項目的格子出現。EO 產品 A、B 各 1 種，EO 殘留每個全週期 = 6 + 6 = 12 件。</li>
       </ul>
@@ -239,7 +245,7 @@ const sum = a => a.reduce((s, x) => s + x, 0);
 function mkGroup(id, title, badge, note, items) {
   return { id, title, badge, note, items, sub: sum(items.map(i => i[1])) };
 }
-function cbcCards(F, QC) {
+function cbcCards(F, QC, Y = 100) {
   return [0, 1, 2].map(b => {
     const per = PK + F;
     const mpoItems = [['微生物', CBC.BIO[b]], ['回收率', CBC.REC[b]], ['照射-1 無菌', CBC.VER[b]], ['抑菌/抑黴', CBC.BF[b]]];
@@ -254,10 +260,11 @@ function cbcCards(F, QC) {
       setGroup('ctl', '對照組 包裝+功能', '未滅菌', '不照射，與照射組對照', CBC.CTL[b]),
       mkGroup('inh', '廠內', '', '', [['組裝QC', QC], ['滅前生菌', GEN_CBC]])
     ].filter(g => g.sub > 0);
-    return { title: NAMES[b], unit: '件 製令數量', order: sum(groups.filter(g => !g.excl).map(g => g.sub)), groups };
+    const input = sum(groups.filter(g => !g.excl).map(g => g.sub));
+    return { title: NAMES[b], unit: '件 建議製令', input, order: Math.ceil(input * 100 / Y), groups };
   });
 }
-function eoCard(F, QC) {
+function eoCard(F, QC, Y = 100) {
   const groups = [
     mkGroup('mpo', '微生物・無菌・抑菌', 'EPCD / IPCD', '', [
       ['微生物（EPCD）', EO.BIO], ['無菌 12 × 3（EPCD）', EO.STER * 3], ['抑菌抑霉（IPCD）', EO.ANTI]
@@ -270,7 +277,8 @@ function eoCard(F, QC) {
     ]),
     mkGroup('inh', '廠內', '', '', [['生菌', GEN_EO], ['組裝QC', QC]])
   ].filter(g => g.sub > 0);
-  return { title: '單一製令', unit: '件 建議開單', order: sum(groups.map(g => g.sub)), groups };
+  const input = sum(groups.map(g => g.sub));
+  return { title: '單一製令', unit: '件 建議開單', input, order: Math.ceil(input * 100 / Y), groups };
 }
 /*END*/
 
@@ -284,8 +292,12 @@ const MODES = {
 const saved = { cbc: { f: 5, q: 10 }, eo: { f: 10, q: 9 } };
 let mode = null;
 let lastText = '';
-let lastF = 0, lastQC = 0;
+let lastF = 0, lastQC = 0, lastY = 90;
 
+function yieldVal() {
+  const v = parseInt($('yld').value, 10);
+  return isNaN(v) || v < 1 ? 1 : Math.min(v, 100);
+}
 function toInt(v) { const n = parseInt(v, 10); return isNaN(n) || n < 0 ? 0 : n; }
 
 function groupHTML(g) {
@@ -302,6 +314,7 @@ function lineHTML(c, i) {
 function cardHTML(c, label) {
   return '<article class="card"><h3>' + c.title + '</h3>' +
     '<div class="big"><span class="num">' + c.order + '</span><span class="unit">' + c.unit + '</span></div>' +
+    '<div class="gnote">投入 ' + c.input + ' 件 ÷ 良率 ' + lastY + '%，無條件進位</div>' +
     '<div class="bar" role="img" aria-label="' + label + '">' +
     c.groups.filter(g => !g.excl).map(g => '<span class="' + g.id + '" style="flex:' + g.sub + '"></span>').join('') + '</div>' +
     c.groups.map(groupHTML).join('') + '</article>';
@@ -312,9 +325,10 @@ function render() {
   const F = toInt($('f').value), QC = toInt($('qc').value);
   saved[mode] = { f: F, q: QC };
   lastF = F; lastQC = QC;
+  lastY = yieldVal();
   let cards, total, valid, text;
   if (mode === 'cbc') {
-    cards = cbcCards(F, QC);
+    cards = cbcCards(F, QC, lastY);
     total = sum(cards.map(c => c.order));
     $('cards').className = 'cards stack';
     $('cards').innerHTML = cards.map((c, i) => cardHTML(c, NAMES[i] + ' 製令 ' + c.order)).join('');
@@ -323,11 +337,11 @@ function render() {
       '<span class="t-sub">' + cards.map((c, i) => NAMES[i] + ' ' + c.order).join(' ・ ') + '</span></div><button type="button" class="btn" id="cp">複製結果</button>';
     text = ['輻射滅菌（Gamma）製令數量試算（ISO 11137-2:2013）',
       '功能 ' + F + '、組裝QC ' + QC + '（每批）、包裝 ' + PK + '、滅前生菌 ' + GEN_CBC + '（每批）'];
-    cards.forEach((c, i) => text.push(NAMES[i] + '：製令 ' + c.order + ' 件'));
+    cards.forEach((c, i) => text.push(NAMES[i] + '：建議製令 ' + c.order + ' 件（投入 ' + c.input + '，良率 ' + lastY + '%）'));
     text.push('3 批合計：' + total + ' 件');
     valid = null;
   } else {
-    const c = eoCard(F, QC);
+    const c = eoCard(F, QC, lastY);
     cards = [c];
     total = c.order;
     $('cards').className = 'cards stack';
@@ -335,10 +349,10 @@ function render() {
     $('rule').innerHTML = 'EO 殘留每個全週期 = A <b>1</b> × 6 + B <b>1</b> × 6 = <b>12</b> 件；生菌 <b>' + GEN_EO + '</b> 件與組裝QC <b>' + QC + '</b> 件，各計一次。';
     const sub = c.groups.filter(g => g.id !== 'inh').reduce((s, g) => s + g.sub, 0);
     $('total').innerHTML = '<div class="t-main"><span class="t-num">' + total + '</span><span>件 建議開單</span>' +
-      '<span class="t-sub">投入樣品 ' + sub + ' + 生菌 ' + GEN_EO + ' + 組裝QC ' + QC + '</span></div><button type="button" class="btn" id="cp">複製結果</button>';
+      '<span class="t-sub">投入 ' + c.input + ' 件（樣品 ' + sub + ' + 生菌 ' + GEN_EO + ' + 組裝QC ' + QC + '）÷ 良率 ' + lastY + '%</span></div><button type="button" class="btn" id="cp">複製結果</button>';
     text = ['EO 滅菌確效 樣品試算（單一製令，ISO 11137-2:2013）',
       '功能性 ' + F + '（每全週期與對照組）、組裝QC ' + QC + '（整張製令）',
-      '投入樣品 ' + sub + ' + 生菌 ' + GEN_EO + ' + 組裝QC ' + QC + ' = 開單 ' + total + ' 件'];
+      '投入樣品 ' + sub + ' + 生菌 ' + GEN_EO + ' + 組裝QC ' + QC + ' = 投入 ' + c.input + '，良率 ' + lastY + '%，建議開單 ' + total + ' 件'];
   }
   lastText = text.join('\n');
 
@@ -368,7 +382,8 @@ function buildTable() {
       ['對照組 功能', ...n3(b => s(CBC.CTL[b] * F))],
       ['組裝QC', ...n3(() => s(QC))],
       ['滅前生菌', ...n3(() => s(GEN_CBC))],
-      ['製令數量', ...cards.map(c => String(c.order))]
+      ['投入合計', ...cards.map(c => String(c.input))],
+      ['建議製令（良率 ' + lastY + '%）', ...cards.map(c => String(c.order))]
     ];
     return {
       title: '輻射滅菌（Gamma）製令數量對照表',
@@ -400,7 +415,7 @@ function buildTable() {
   rows.push(['', '投入樣品合計', ...blank, String(counted)]);
   rows.push(['', '生菌', ...blank, String(GEN_EO)]);
   rows.push(['', '組裝QC', ...blank, String(QC)]);
-  rows.push(['', '開單數量', ...blank, String(counted + GEN_EO + QC)]);
+  rows.push(['', '建議開單（良率 ' + lastY + '%）', ...blank, String(Math.ceil((counted + GEN_EO + QC) * 100 / lastY))]);
   return {
     title: 'EO 滅菌確效 樣品對照表（單一製令）',
     sub: '功能性 ' + F + '　組裝QC ' + QC + '　包裝 ' + PK + '　EO 殘留 A 1 種、B 1 種',
@@ -516,6 +531,7 @@ document.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', (
 $('back').addEventListener('click', leave);
 $('f').addEventListener('input', render);
 $('qc').addEventListener('input', render);
+$('yld').addEventListener('input', render);
 $('copy').addEventListener('click', copyResult);
 $('exp-png').addEventListener('click', exportPNG);
 $('exp-csv').addEventListener('click', exportCSV);
